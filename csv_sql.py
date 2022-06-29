@@ -5,7 +5,7 @@ import perprocess
 import file_combine
 
 # create sqlalchemy db connetion
-engine = create_engine('sqlite:///dssg.sqlite', echo=True)
+engine = create_engine('sqlite:///dssg.sqlite', echo=False)
 sqlite_connection = engine.connect()
 
 # get current working directory path
