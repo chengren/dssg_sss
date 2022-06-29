@@ -8,7 +8,13 @@ def combine_table(excel_files):
 	for file in excel_files:
 		# read in excel as pandas dataframe
 		try:
-			df = pd.read_excel(file, sheet_name = 'By Family')
+			xl = pd.ExcelFile(file)
+			n_sheets = len(xl.sheet_names)
+			if n_sheets == 2:
+				df = pd.read_excel(file, sheet_name = 1)
+			if n_sheets > 2:
+				family_frame = [sheet for sheet in xl.sheet_names if 'Fam' in sheet]
+				df = pd.read_excel(file, sheet_name = family_frame[0])
 			# call the packages from preprocess
 			df = perprocess.std_col_names (df)
 			# get number of cloumns in 
