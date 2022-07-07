@@ -54,4 +54,4 @@ table_cols['value']=1
 #Long table to wide table so the distribution become dummy
 table_cols_wide = table_cols.pivot_table(index='file_names', columns ='column_names', values='value',fill_value = 0)
 table_cols_wide.loc['Total']= table_cols_wide.sum()
-table_cols_wide.to_csv('table_cols_wide.csv',index=False)
+table_cols_wide.to_csv('table_cols_wide.csv')
