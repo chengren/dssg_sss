@@ -12,11 +12,13 @@ file_names = []
 col_names = []
 for file in xls_files:
     # read in excel as pandas dataframe
-    print(file)
     try:
         xl = pd.ExcelFile(file)
+        print(file)
         n_sheets = len(xl.sheet_names)
-        if n_sheets == 2:
+        if n_sheets == 1 :
+            df = pd.read_excel(file, sheet_name = 0,nrows= 5)
+        if n_sheets == 2 :
             df = pd.read_excel(file, sheet_name = 1,nrows= 5)
         if n_sheets > 2:
             family_frame = [sheet for sheet in xl.sheet_names if 'Fam' in sheet]
