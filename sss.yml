@@ -1,0 +1,15 @@
+name: sss
+channels:
+  - conda-forge
+dependencies:
+  - ipython
+  - jupyter
+  - jupyterlab
+  - matplotlib
+  - numpy
+  - openpyxl
+  - pandas
+  - pyxlsb
+  - sqlalchemy
+  - scipy
+  - pip

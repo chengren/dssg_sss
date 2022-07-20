@@ -1,11 +1,15 @@
 
 import os, glob
 import pandas as pd
-import perprocess
+import preprocess
 from itertools import chain
 from collections import Counter
 
-path = os.getcwd()+'/data/'
+# setting working directory to that of the database
+# path = os.getcwd()+'/data/'
+
+# test dataset
+path = os.getcwd()+'/test_data/'
 xls_files = glob.glob(os.path.join(path, "*.xls*"))
 
 file_names = []
@@ -18,13 +22,15 @@ for file in xls_files:
         n_sheets = len(xl.sheet_names)
         if n_sheets == 1 :
             df = pd.read_excel(file, sheet_name = 0,nrows= 5)
+        # if there are two sheets, then we read the sheetname that does not contain note
         if n_sheets == 2 :
-            df = pd.read_excel(file, sheet_name = 1,nrows= 5)
+            state_frame = [y for y in range(len(xl.sheet_names)) if "note" not in xl.sheet_names[y].lower()]
+            df = pd.read_excel(file, sheet_name = state_frame[0],nrows= 5)
         if n_sheets > 2:
             family_frame = [sheet for sheet in xl.sheet_names if 'Fam' in sheet]
             df = pd.read_excel(file, sheet_name = family_frame[0], nrows= 5)
         # call the packages from preprocess
-        df = perprocess.std_col_names (df)
+        df = preprocess.std_col_names(df)
         col_name = df.columns
         file_name = file.split('/')[-1]
         file_names.append(file_name)
@@ -57,3 +63,5 @@ table_cols['value']=1
 table_cols_wide = table_cols.pivot_table(index='file_names', columns ='column_names', values='value',fill_value = 0)
 table_cols_wide.loc['Total']= table_cols_wide.sum()
 table_cols_wide.to_csv('table_cols_wide.csv')
+
+print(col_names)
