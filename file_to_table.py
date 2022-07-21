@@ -1,29 +1,53 @@
+"""
+Creates a primary table for SSS data.
+
+First, reads SSS data, conducts pre-processing and creates a primary table for SSS data.
+
+"""
+
 import os, glob
-from tabnanny import check
-import pandas as pd
 import preprocess
-from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Float, ForeignKey, Boolean
-import os, glob
-import pandas as pd
-from sqlalchemy import create_engine, select
-import preprocess
-import file_combine
-from sqlalchemy.orm.session import sessionmaker
-from sqlalchemy.orm import declarative_base
 import numpy as np
+import pandas as pd
+from sqlalchemy.orm import declarative_base 
+from sqlalchemy.orm.session import sessionmaker
+from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Float, ForeignKey, Boolean
 
+"""
+Path is a variable that accesses the folder containing the data of interest.
 
-path = os.getcwd()+'/test_data/'
+xls_files is a variabale that gets all the files in this folder containing "xls."
+
+"""
+path = os.getcwd()+'/data/'
 xls_files = glob.glob(os.path.join(path, "*.xls*"))
 
 def read_file(file):
-    # read in excel as pandas dataframe
+    """
+    Takes in a xls file and creates pandas dataframe.
+
+    First, it reads the sheet of interest (family_type) and standardize the column names.
+
+    Parameters
+    ----------
+    file: str
+        path of the file that is added to database
+
+    Returns
+    -------
+    df: pandas.dataframe
+        dataframe including columns similar to the primary table 
+
+    """
     try:
         xl = pd.ExcelFile(file)
-        print(file)
+        
+        # print the file (or path name) to show which file we are working with
         n_sheets = len(xl.sheet_names)
+        
         if n_sheets == 1 :
             df = pd.read_excel(file, sheet_name = 0)
+        
         # if there are two sheets, then we read the sheetname that does not contain note
         if n_sheets == 2 :
             state_frame = [y for y in range(len(xl.sheet_names)) if "note" not in xl.sheet_names[y].lower()]
@@ -31,37 +55,85 @@ def read_file(file):
         if n_sheets > 2:
             family_frame = [sheet for sheet in xl.sheet_names if 'Fam' in sheet]
             df = pd.read_excel(file, sheet_name = family_frame[0])
-        # call the packages from preprocess
+        
+        # call the packages from preprocess.py
         df = preprocess.std_col_names(df)
     except:
         print('This file cannot be read' + ' ' +file.split('/')[-1])
-    return df
+    return df, file
 
-# create a miscellanoues and all other secondary columns for each df, to be zero and one 
+def check_extra_columns(df):
+    """
+    Takes pandas dataframe. If there are additional special columns, adds a boolean column. 
+    
+    In particular, if broadband_&_cell_phone and health_care are included. 
 
-def check_extra_columns(dataf):
-    table_columns = ['family_type', 'state', 'place','year','analysis_type', 'adult', 'infant','preschooler', 'schoolager', 'teenager','weighted_child_count', 'housing','child_care', 
-    'transportation', 'health_care', 'miscellaneous', 'taxes','earned_income_tax_credit','child_care_tax_credit','child_tax_credit', 'hourly_self_sufficiency_wage','monthly_self_sufficiency_wage', 'annual_self_sufficiency_wage', 'emergency_savings'] 
-    if 'broadband_&_cell_phone' in dataf.columns:
-        dataf['miscellaneous_is_secondary'] = True
+    Parameters
+    ----------
+    df: pandas.dataframe
+        this is the dataframe 
+
+
+    Returns
+    -------
+    df: pandas.dataframe
+        dataframe has additional columns that indicate whether there is a secondary table to match the finalized columns of the table.
+
+    additional columns as:
+    - 'broadband_&_cell_phone'
+    - 'miscellaneous_is_secondary'
+    - 'health_care_is_secondary'
+
+    """
+    if 'broadband_&_cell_phone' in df.columns:
+        df['miscellaneous_is_secondary'] = True
     else:
-        dataf['miscellaneous_is_secondary'] = False
-    if 'health_care' in  dataf.columns:
-        dataf['health_care_is_secondary'] = True
+        df['miscellaneous_is_secondary'] = False
+    if 'health_care' in  df.columns:
+        df['health_care_is_secondary'] = True
     else:
-        dataf['health_care_is_secondary'] = False
-    return dataf
+        df['health_care_is_secondary'] = False
+    return df 
 
-for i in xls_files:
-    df = read_file(i)
+
+
+"""
+Loop through the list of xls_files which contains the path of the files of interest.
+Creates the pandas.dataframe from the file being read. 
+Then, call the previous function to add boolean columns.
+Update the column names that were causing issues when reading into the table (specifically, infant and emergency_savings).
+At last, create the SQL table by creating sss class.
+
+"""
+for i in xls_files:  
+
+    # read file and conduct pre-processing
+    df, file = read_file(i)
     df = check_extra_columns(df)
+    # need to have more precise solution for this specific problem
+    # df['infant'] = pd.to_numeric(df['infant'],errors='coerce')
+    # df['emergency_savings'] = pd.to_numeric(df['emergency_savings'],errors='coerce')
+
+    # Create a 'weighted_child_count' column that takes the a*c* values from infant NaNs the rest
+    df['weighted_child_count'] = df['infant']
+    df.loc[df.loc[:,'family_type'].isin([i for i in df['family_type'] if 'c' not in i]),'weighted_child_count'] = np.nan
+
     df = df.drop_duplicates(subset=['analysis_type','family_type','state','year','place'])
     df.reset_index(inplace=True, drop=True)
+
+    # access sqlite
     engine = create_engine('sqlite:///sss.sqlite', echo = False)
     m = MetaData(bind=engine)
     Base = declarative_base(metadata=m)
+
+    # create container 
     class sss(Base):
+
+        """
+        Container that creates table using SSS data
+        """
         __tablename__ = 'self_sufficiency_standard'
+
         family_type = Column('family_type', String, primary_key = True)
         state = Column('state', String, primary_key = True)
         place = Column('place', String, primary_key = True)
@@ -89,6 +161,7 @@ for i in xls_files:
         miscellaneous_is_secondary = Column('miscellaneous_is_secondary', Boolean)
         health_care_is_secondary = Column('health_care_is_secondary', Boolean)
 
+    # print(file.split('/')[-1])
 
     Base.metadata.create_all(engine) 
     Session = sessionmaker(bind=engine)
@@ -98,12 +171,5 @@ for i in xls_files:
     session.bulk_insert_mappings(sss, df_dic)
     session.commit()
 
-# df['infant'] = pd.to_numeric(df['infant'],errors='coerce')
-# df['emergency_savings'] = pd.to_numeric(df['emergency_savings'],errors='coerce')
 
-
-# need to ask Aziza when are you creating the column for the weighted children
-
-
-
-
+# TODO: Having issues with reading OR 2021, need to debug, everything else work (specifically handling AARPA file)
