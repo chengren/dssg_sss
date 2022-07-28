@@ -96,15 +96,43 @@ def check_extra_columns(df):
         these columns indicate whether there is a secondary table
 
     """
-    if 'broadband_&_cell_phone' in df.columns:
+
+    miscellaneous = pd.DataFrame()
+    if ('other_necessities'or'broadband_and_cell_phone') in df.columns:
         df['miscellaneous_is_secondary'] = True
+        miscellaneous = df[[ 'family_type','state','place','year','analysis_type']]
+        if 'broadband_and_cell_phone' in df.columns:
+            miscellaneous = pd.concat([miscellaneous, df['broadband_and_cell_phone']],axis=1)
+        if 'other_necessities' in df.columns:
+            miscellaneous = pd.concat([miscellaneous, df['other_necessities']],axis=1)
     else:
         df['miscellaneous_is_secondary'] = False
-    if 'health_care' in df.columns:
+
+    health_care = pd.DataFrame()
+    if ('health_care' or 'premium' or 'out_of_pocket') in df.columns:
         df['health_care_is_secondary'] = True
+        health_care = df[[ 'family_type','state','place','year','analysis_type']]
+        if 'out_of_pocket' in df.columns:
+            health_care = pd.concat([health_care, df['out_of_pocket']],axis=1)
+        if 'premium' in df.columns:
+            health_care = pd.concat([health_care, df['premium']],axis=1)
     else:
         df['health_care_is_secondary'] = False
-    return df
+    
+    """
+    arpa, is analysis_type is not full or partial, 
+    create analysis_is_secondary columns
+
+    """
+    arpa = pd.DataFrame()
+    if 'Full' or 'Partial' in df['analysis_type']:
+        df['analysis_is_secondary'] = True
+        arpa = df[[ 'family_type','state','place','year','analysis_type']] 
+        arpa = pd.concat([arpa, df['analysis_type']],axis=1)
+    else:
+         df['analysis_is_secondary'] = False
+
+    return df, miscellaneous, health_care, arpa
 
 
 def create_database(data_folder):
@@ -138,7 +166,10 @@ def create_database(data_folder):
     for i in data_folder:
         # read file and conduct pre-processing
         df, file = read_file(i)
-        df = check_extra_columns(df)
+
+        #clarify from cheng what will be defined as miscellaneous, and health_care
+
+        df, miscellaneous, health_care, arpa = check_extra_columns(df)
         # need to have more precise solution for this specific problem
         # df['infant'] = pd.to_numeric(df['infant'],errors='coerce')
         # df['emergency_savings'] = pd.to_numeric(
@@ -193,6 +224,7 @@ def create_database(data_folder):
             annual_self_sufficiency_wage = Column(
                 'annual_self_sufficiency_wage', Float)
             emergency_savings = Column('emergency_savings', Float)
+            
             miscellaneous_is_secondary = Column(
                 'miscellaneous_is_secondary', Boolean)
             health_care_is_secondary = Column(
@@ -208,5 +240,6 @@ def create_database(data_folder):
         session.bulk_insert_mappings(sss, df_dic)
         session.commit()
 
-
+data_folder = '/Users/azizamirsaidova/Documents/GitHub/dssg_sss copy/Selected/'
+print(create_database(data_folder))
 # TODO: Having issues with reading repeat files

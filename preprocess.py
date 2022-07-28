@@ -1,6 +1,7 @@
 import re
 # std_col_names is to standardlize the column names in the columns
 def std_col_names(pd_dataframe):
+	
 	#if dataframe headers have parentheses and content within , replace with empty
 	pd_dataframe.columns = [re.sub('\(.*?\)','',col) for col in pd_dataframe.columns]
 	# trim the column name
@@ -27,5 +28,8 @@ def std_col_names(pd_dataframe):
 	pd_dataframe.columns = [col.replace('county', 'place')for col in pd_dataframe]
 	# if dataframe headers have status replace with analysis_type
 	pd_dataframe.columns = [col.replace('status', 'analysis_type')for col in pd_dataframe]
+	# if dataframe headers have & replace with and
+	pd_dataframe.columns = [col.replace('&', 'and')for col in pd_dataframe]
+	
 	return pd_dataframe
 	
